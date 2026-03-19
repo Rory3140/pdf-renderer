@@ -1,0 +1,9 @@
+node_modules/
+.env
+*.pdf
+*.png
+diagnose*.js
+screenshot*.js
+local_*.pdf
+.claude/
+CLAUDE.md

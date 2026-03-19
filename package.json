@@ -1,0 +1,14 @@
+{
+  "name": "pdf-renderer",
+  "version": "1.0.0",
+  "description": "URL to PDF renderer using Puppeteer on Cloud Run",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "puppeteer": "^23.10.1",
+    "cors": "^2.8.5"
+  }
+}
