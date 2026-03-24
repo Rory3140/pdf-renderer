@@ -72,17 +72,35 @@ app.post('/pdf', async (req, res) => {
 
     let captureWidth = null;
 
+    let captureHeight = null;
     if (capture_element) {
-      captureWidth = await page.evaluate((selector) => {
+      ({ captureWidth, captureHeight } = await page.evaluate((selector) => {
         const el = document.querySelector(selector);
         if (!el) throw new Error(`capture_element "${selector}" not found`);
 
-        // Remove overflow clipping only — do NOT change heights (sections use height:100%
-        // relative to container, so changing container height would stretch them).
-        el.style.setProperty('overflow', 'visible', 'important');
-        Array.from(el.children).forEach(child => {
+        // Snapshot every descendant's current computed pixel height BEFORE expanding
+        // the container, so height:100% children don't stretch when the parent grows.
+        const scrollH = el.scrollHeight;
+        el.querySelectorAll('*').forEach(child => {
+          const h = child.getBoundingClientRect().height;
+          if (h > 0) child.style.setProperty('height', h + 'px', 'important');
           child.style.setProperty('overflow', 'visible', 'important');
         });
+
+        // Expand the container to its full scroll height so all content is in view.
+        el.style.setProperty('height', scrollH + 'px', 'important');
+        el.style.setProperty('overflow', 'visible', 'important');
+
+        // Expand ancestors so the body layout height matches the full content.
+        let ancestor = el.parentElement;
+        while (ancestor && ancestor !== document.body) {
+          ancestor.style.setProperty('overflow', 'visible', 'important');
+          ancestor.style.setProperty('height', 'auto', 'important');
+          ancestor.style.setProperty('min-height', scrollH + 'px', 'important');
+          ancestor = ancestor.parentElement;
+        }
+        document.body.style.setProperty('overflow', 'visible', 'important');
+        document.body.style.setProperty('min-height', scrollH + 'px', 'important');
 
         // Mark body-level ancestor so overlays can be hidden via @media print CSS
         let direct = el;
@@ -91,8 +109,10 @@ app.post('/pdf', async (req, res) => {
         }
         direct.setAttribute('data-pdf-keep', 'true');
 
-        return el.scrollWidth;
-      }, capture_element);
+        // Add a small buffer so content that renders slightly taller than scrollHeight
+        // (e.g. canvas elements like signatures) doesn't spill onto a second page.
+        return { captureWidth: el.scrollWidth, captureHeight: scrollH + 100 };
+      }, capture_element));
 
       await page.addStyleTag({
         content: `
@@ -107,15 +127,15 @@ app.post('/pdf', async (req, res) => {
     const pdfOptions = {
       printBackground: print_background,
       scale,
-      margin: margin || { top: '20px', bottom: '20px', left: '20px', right: '20px' },
+      margin: margin || { top: '0px', bottom: '0px', left: '0px', right: '0px' },
     };
 
     if (margin) pdfOptions.margin = margin;
 
-    if (captureWidth) {
-      // Use the element's natural pixel width so content isn't squished, A4 height for pagination
+    if (captureWidth && captureHeight) {
+      // Single-page PDF sized exactly to the captured element — no page breaks.
       pdfOptions.width = captureWidth + 'px';
-      pdfOptions.height = '11.69in';
+      pdfOptions.height = captureHeight + 'px';
     } else {
       pdfOptions.format = format;
       pdfOptions.landscape = landscape;
