@@ -90,6 +90,13 @@ app.post('/pdf', async (req, res) => {
         // Expand the container to its full scroll height so all content is in view.
         el.style.setProperty('height', scrollH + 'px', 'important');
         el.style.setProperty('overflow', 'visible', 'important');
+        el.style.setProperty('margin-top', '0px', 'important');
+        el.style.setProperty('padding-top', '0px', 'important');
+        // Also strip top margin/padding from the first child (hero element)
+        if (el.firstElementChild) {
+          el.firstElementChild.style.setProperty('margin-top', '0px', 'important');
+          el.firstElementChild.style.setProperty('padding-top', '0px', 'important');
+        }
 
         // Expand ancestors so the body layout height matches the full content.
         let ancestor = el.parentElement;
@@ -118,7 +125,8 @@ app.post('/pdf', async (req, res) => {
         content: `
           @media print {
             body > *:not([data-pdf-keep]) { display: none !important; }
-            body { margin: 0 !important; padding: 0 !important; }
+            html, body { margin: 0 !important; padding: 0 !important; }
+            [data-pdf-keep] { margin-top: 0 !important; padding-top: 0 !important; position: static !important; top: 0 !important; }
           }
         `,
       });
