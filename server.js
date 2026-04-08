@@ -10,7 +10,8 @@ const GCS_BUCKET = process.env.GCS_BUCKET || 'plugpv-pdf-renderer';
 function getStorageClient() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (raw) {
-    const credentials = JSON.parse(raw);
+    const decoded = raw.startsWith('{') ? raw : Buffer.from(raw, 'base64').toString('utf8');
+    const credentials = JSON.parse(decoded);
     return new Storage({ credentials, projectId: credentials.project_id });
   }
   const keyFile = path.join(__dirname, 'service-account.json');
