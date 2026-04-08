@@ -8,9 +8,9 @@ const path = require('path');
 const GCS_BUCKET = process.env.GCS_BUCKET || 'plugpv-pdf-renderer';
 
 function getStorageClient() {
-  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (b64) {
-    const credentials = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (raw) {
+    const credentials = JSON.parse(raw);
     return new Storage({ credentials, projectId: credentials.project_id });
   }
   const keyFile = path.join(__dirname, 'service-account.json');
