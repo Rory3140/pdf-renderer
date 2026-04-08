@@ -9,6 +9,7 @@
   "dependencies": {
     "express": "^4.21.0",
     "puppeteer": "^23.10.1",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "@google-cloud/storage": "^7.0.0"
   }
 }

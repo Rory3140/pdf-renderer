@@ -7,3 +7,5 @@ screenshot*.js
 local_*.pdf
 .claude/
 CLAUDE.md
+service-account.json
+test/

@@ -1,6 +1,24 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
 const cors = require('cors');
+const { Storage } = require('@google-cloud/storage');
+const fs = require('fs');
+const path = require('path');
+
+const GCS_BUCKET = process.env.GCS_BUCKET || 'plugpv-pdf-renderer';
+
+function getStorageClient() {
+  const b64 = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (b64) {
+    const credentials = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+    return new Storage({ credentials, projectId: credentials.project_id });
+  }
+  const keyFile = path.join(__dirname, 'service-account.json');
+  if (fs.existsSync(keyFile)) {
+    return new Storage({ keyFilename: keyFile });
+  }
+  throw new Error('No GCS credentials found. Set GOOGLE_SERVICE_ACCOUNT_JSON or add service-account.json');
+}
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -30,6 +48,7 @@ app.post('/pdf', async (req, res) => {
     print_background = true,
     margin,
     capture_element,
+    upload_to_gcs = false,
   } = req.body;
 
   if (!api_key || api_key !== process.env.API_KEY) {
@@ -152,6 +171,16 @@ app.post('/pdf', async (req, res) => {
     const pdfBuffer = Buffer.from(await page.pdf(pdfOptions));
 
     clearTimeout(timeout);
+
+    if (upload_to_gcs) {
+      const storage = getStorageClient();
+      const fileName = `pdf-renderer/${Date.now()}.pdf`;
+      const file = storage.bucket(GCS_BUCKET).file(fileName);
+      await file.save(pdfBuffer, { contentType: 'application/pdf' });
+      const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET}/${fileName}`;
+      return res.status(200).json({ url: publicUrl });
+    }
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="document.pdf"');
     res.status(200).send(pdfBuffer);
