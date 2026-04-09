@@ -180,7 +180,7 @@ app.post('/pdf', async (req, res) => {
       const file = storage.bucket(GCS_BUCKET).file(fileName);
       await file.save(pdfBuffer, {
         contentType: 'application/pdf',
-        metadata: gcs_metadata || {},
+        metadata: { metadata: gcs_metadata || {} },
       });
       const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET}/${fileName}`;
       return res.status(200).json({ url: publicUrl });
