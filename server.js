@@ -50,6 +50,7 @@ app.post('/pdf', async (req, res) => {
     margin,
     capture_element,
     upload_to_gcs = false,
+    gcs_metadata,
   } = req.body;
 
   if (!api_key || api_key !== process.env.API_KEY) {
@@ -177,7 +178,10 @@ app.post('/pdf', async (req, res) => {
       const storage = getStorageClient();
       const fileName = `pdf-renderer/${Date.now()}.pdf`;
       const file = storage.bucket(GCS_BUCKET).file(fileName);
-      await file.save(pdfBuffer, { contentType: 'application/pdf' });
+      await file.save(pdfBuffer, {
+        contentType: 'application/pdf',
+        metadata: gcs_metadata || {},
+      });
       const publicUrl = `https://storage.googleapis.com/${GCS_BUCKET}/${fileName}`;
       return res.status(200).json({ url: publicUrl });
     }
