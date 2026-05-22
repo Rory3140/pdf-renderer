@@ -32,6 +32,33 @@ app.use(cors({
 
 app.use(express.json());
 
+// Persistent browser — launched once at startup, reused across requests
+let browser;
+
+const BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+];
+
+async function getBrowser() {
+  if (browser && browser.connected) return browser;
+  browser = await puppeteer.launch({ args: BROWSER_ARGS });
+  browser.on('disconnected', () => { browser = null; });
+  return browser;
+}
+
+// Launch browser before accepting traffic
+(async () => {
+  try {
+    await getBrowser();
+    console.log('Browser ready');
+  } catch (err) {
+    console.error('Failed to launch browser on startup:', err);
+  }
+})();
+
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
@@ -61,25 +88,17 @@ app.post('/pdf', async (req, res) => {
     return res.status(400).json({ error: 'url is required' });
   }
 
-  let browser;
+  let page;
   const timeout = setTimeout(() => {
-    if (browser) browser.close().catch(() => {});
+    if (page) page.close().catch(() => {});
     if (!res.headersSent) {
       res.status(504).json({ error: 'PDF generation timed out' });
     }
   }, 60000);
 
   try {
-    browser = await puppeteer.launch({
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-    });
-
-    const page = await browser.newPage();
+    const b = await getBrowser();
+    page = await b.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
     await page.goto(url, { waitUntil: wait_until });
 
@@ -196,8 +215,8 @@ app.post('/pdf', async (req, res) => {
       res.status(500).json({ error: err.message || 'PDF generation failed' });
     }
   } finally {
-    if (browser) {
-      await browser.close().catch(() => {});
+    if (page) {
+      await page.close().catch(() => {});
     }
   }
 });
